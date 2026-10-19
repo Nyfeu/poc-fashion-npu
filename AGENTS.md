@@ -39,3 +39,35 @@ Docs: https://docs.expo.dev/eas/index.md
 - If `ios/` and `android/` directories do not exist, they are generated (Continuous Native Generation). Never create or edit them by hand — configure native behavior in `app.json` and config plugins.
 - Expo Go only includes its bundled native modules. After adding a library with native code, the app needs a development build: `npx expo run:ios|android` locally, or `eas build --profile development`.
 - Prefer recommended Expo modules over third-party libraries, and check your available skills before adding dependencies. Docs: https://docs.expo.dev/versions/latest/index.md
+
+## Convenções deste projeto
+
+- Não altere arquivos fora do escopo pedido. Explique cada alteração.
+- Componentes ficam em `components/`, um arquivo por componente.
+- Estado nunca é modificado no lugar: sempre gere um novo valor.
+- Valores que podem ser calculados a partir do estado não viram estado.
+- Antes de usar um pacote, confirme na documentação se ele funciona no Expo Go.
+
+## Contexto desta prova de conceito
+
+- TCC: processador RISC-V em FPGA com uma NPU que executa redes neurais; esta
+  PoC usa uma segunda rede (Fashion-MNIST) para mostrar que a NPU serve para
+  mais de uma aplicação.
+- Problema: na tela do computador, cada resultado substitui o anterior; quem
+  acompanha a demonstração não vê o histórico nem os padrões de erro.
+- Tecnologia investigada: FlatList do React Native.
+- Uma tela só, em `App.tsx`: botão Sortear mostra uma peça de roupa; botão
+  Inferir classifica e coloca o resultado no topo de uma lista (imagem,
+  classe prevista, classe real, acerto ou erro); placar "Acertos: X de Y";
+  botão "Rodar 20" sorteia e infere 20 peças em sequência.
+- Vibração com expo-haptics: uma vez a cada Inferir manual e uma vez só ao
+  fim do "Rodar 20".
+- Servidor já existe e roda no computador. O endereço fica numa constante no
+  topo do App.tsx (IP do computador na rede, nunca localhost).
+  - GET /amostra/fashion → { id, pixels (784 números de 0 a 255),
+    classe_real, rotulo_real }
+  - POST /inferir/fashion com { pixels } → { classe, rotulo, confianca, ... }
+- Não usar Expo Router: esta PoC tem uma tela só, em `App.tsx`. Ignore a
+  seção "Navigation & Routing" acima e não crie a pasta `src/app/`.
+- Fora de escopo: login, salvar o histórico, design final e tudo que não
+  demonstre a pergunta.
