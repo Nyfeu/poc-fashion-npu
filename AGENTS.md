@@ -64,7 +64,8 @@ Docs: https://docs.expo.dev/eas/index.md
   fim do "Rodar 20".
 - Servidor já existe e roda no computador. O endereço fica numa constante no
   topo do App.tsx (IP do computador na rede, nunca localhost).
-  - GET /amostra/fashion → { id, pixels (784 números de 0 a 255),
+    - GET /amostra/fashion → { id, pixels (784 números de 0 a 255),
+    imagem_png (imagem pronta em data URI, para o componente Image),
     classe_real, rotulo_real }
   - POST /inferir/fashion com { pixels } → { classe, rotulo, confianca, ... }
 - Não usar Expo Router: esta PoC tem uma tela só, em `App.tsx`. Ignore a
