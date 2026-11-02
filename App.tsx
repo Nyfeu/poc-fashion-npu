@@ -12,6 +12,29 @@ import {
 import ResultadoItem, { type Resultado } from './components/ResultadoItem';
 
 const SERVIDOR = 'http://192.168.68.94:5000';
+const TEMPO_LIMITE_MS = 5000;
+
+async function comTempoLimite<T>(operacao: (signal: AbortSignal) => Promise<T>): Promise<T> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), TEMPO_LIMITE_MS);
+
+  try {
+    return await operacao(controller.signal);
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function mensagemDeErro(causa: unknown, fallback: string): string {
+  if (
+    causa instanceof TypeError ||
+    (causa instanceof Error && causa.name === 'AbortError')
+  ) {
+    return 'Servidor inacessível. Confira se o servidor está rodando.';
+  }
+
+  return causa instanceof Error ? causa.message : fallback;
+}
 
 type Amostra = {
   pixels: number[];
@@ -22,22 +45,32 @@ type Amostra = {
 
 export default function App() {
   const [amostra, setAmostra] = useState<Amostra | null>(null);
-  const [carregando, setCarregando] = useState(false);
+  const [requisicaoEmAndamento, setRequisicaoEmAndamento] = useState<
+    'sorteio' | 'inferencia' | null
+  >(null);
+  const requisicaoAtiva = useRef(false);
+  const [amostraInferida, setAmostraInferida] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [historico, setHistorico] = useState<Resultado[]>([]);
   const proximoId = useRef(0);
 
   async function sortearAmostra() {
-    setCarregando(true);
+    if (requisicaoAtiva.current) return;
+    requisicaoAtiva.current = true;
+    setRequisicaoEmAndamento('sorteio');
     setErro(null);
 
     try {
-      const resposta = await fetch(`${SERVIDOR}/amostra/fashion`);
-      if (!resposta.ok) {
-        throw new Error(`O servidor respondeu com status ${resposta.status}.`);
-      }
-
-      const dados: unknown = await resposta.json();
+      const dados = await comTempoLimite<unknown>(async (signal) => {
+        const resposta = await fetch(`${SERVIDOR}/amostra/fashion`, { signal });
+        if (resposta.status === 503) {
+          throw new Error('A placa não respondeu. Tente de novo.');
+        }
+        if (!resposta.ok) {
+          throw new Error(`O servidor respondeu com status ${resposta.status}.`);
+        }
+        return resposta.json();
+      });
       if (
         typeof dados !== 'object' ||
         dados === null ||
@@ -60,32 +93,44 @@ export default function App() {
         classe_real: dados.classe_real,
         rotulo_real: dados.rotulo_real,
       });
+      setAmostraInferida(false);
     } catch (causa) {
-      setErro(causa instanceof Error ? causa.message : 'Não foi possível sortear uma amostra.');
+      setErro(mensagemDeErro(causa, 'Não foi possível sortear uma amostra.'));
     } finally {
-      setCarregando(false);
+      requisicaoAtiva.current = false;
+      setRequisicaoEmAndamento(null);
     }
   }
 
   async function inferirAmostra() {
-    if (!amostra) {
-      setErro('Sorteie uma amostra antes de inferir.');
+    if (!amostra || amostraInferida || requisicaoAtiva.current) {
+      if (!amostra) {
+        setErro('Sorteie uma amostra antes de inferir.');
+      }
       return;
     }
 
+    requisicaoAtiva.current = true;
+    setRequisicaoEmAndamento('inferencia');
     setErro(null);
 
     try {
-      const resposta = await fetch(`${SERVIDOR}/inferir/fashion`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pixels: amostra.pixels }),
+      const dados = await comTempoLimite<unknown>(async (signal) => {
+        const resposta = await fetch(`${SERVIDOR}/inferir/fashion`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pixels: amostra.pixels }),
+          signal,
+        });
+        if (resposta.status === 503) {
+          throw new Error('A placa não respondeu. Tente de novo.');
+        }
+        if (!resposta.ok) {
+          throw new Error(`O servidor respondeu com status ${resposta.status}.`);
+        }
+        return resposta.json();
       });
-      if (!resposta.ok) {
-        throw new Error(`O servidor respondeu com status ${resposta.status}.`);
-      }
 
-      const dados: unknown = await resposta.json();
       if (
         typeof dados !== 'object' ||
         dados === null ||
@@ -109,12 +154,18 @@ export default function App() {
       };
       proximoId.current += 1;
       setHistorico((anterior) => [resultado, ...anterior]);
+      setAmostraInferida(true);
     } catch (causa) {
-      setErro(causa instanceof Error ? causa.message : 'Não foi possível inferir a amostra.');
+      setErro(mensagemDeErro(causa, 'Não foi possível inferir a amostra.'));
+    } finally {
+      requisicaoAtiva.current = false;
+      setRequisicaoEmAndamento(null);
     }
   }
 
   const acertos = historico.filter((resultado) => resultado.acertou).length;
+  const inferirDesabilitado =
+    amostra === null || amostraInferida || requisicaoEmAndamento !== null;
 
   return (
     <View style={styles.container}>
@@ -129,22 +180,49 @@ export default function App() {
       <View style={styles.botoes}>
         <Pressable
           accessibilityRole="button"
-          disabled={carregando}
+          disabled={requisicaoEmAndamento !== null}
           onPress={sortearAmostra}
-          style={({ pressed }) => [styles.botao, pressed && styles.botaoPressionado]}
+          style={({ pressed }) => [
+            styles.botao,
+            requisicaoEmAndamento !== null && styles.botaoDesabilitado,
+            pressed && styles.botaoPressionado,
+          ]}
         >
-          {carregando ? (
+          {requisicaoEmAndamento === 'sorteio' ? (
             <ActivityIndicator color="#fff" />
           ) : (
-            <Text style={styles.textoBotao}>Sortear</Text>
+            <Text
+              style={[
+                styles.textoBotao,
+                requisicaoEmAndamento !== null && styles.textoBotaoDesabilitado,
+              ]}
+            >
+              Sortear
+            </Text>
           )}
         </Pressable>
         <Pressable
           accessibilityRole="button"
+          disabled={inferirDesabilitado}
           onPress={inferirAmostra}
-          style={({ pressed }) => [styles.botao, pressed && styles.botaoPressionado]}
+          style={({ pressed }) => [
+            styles.botao,
+            inferirDesabilitado && styles.botaoDesabilitado,
+            pressed && styles.botaoPressionado,
+          ]}
         >
-          <Text style={styles.textoBotao}>Inferir</Text>
+          {requisicaoEmAndamento === 'inferencia' ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text
+              style={[
+                styles.textoBotao,
+                inferirDesabilitado && styles.textoBotaoDesabilitado,
+              ]}
+            >
+              Inferir
+            </Text>
+          )}
         </Pressable>
       </View>
       {erro ? <Text style={styles.erro}>{erro}</Text> : null}
@@ -199,6 +277,9 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: '#2457c5',
   },
+  botaoDesabilitado: {
+    backgroundColor: '#a8b8dc',
+  },
   botaoPressionado: {
     opacity: 0.8,
   },
@@ -206,6 +287,9 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  textoBotaoDesabilitado: {
+    color: '#f4f6fb',
   },
   erro: {
     marginTop: 8,
