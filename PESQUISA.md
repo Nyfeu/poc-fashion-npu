@@ -57,7 +57,9 @@ preciso partir para a FlashList?
 | Opções de lista | Gemini citou uma configuração (recyclingKey) como sendo da FlashList | Procurei na documentação | É do expo-image, outra biblioteca |
 
 ## Resultado
-[preencher depois do teste no celular]
+Testei no celular (Samsung ZFold 6, Android), pelo Expo Go em modo de desenvolvimento, que é mais lento que o app final. Com 60 resultados na lista, incluindo rolar enquanto novos resultados chegavam pelo "Rodar 20", a FlatList rolou até o fim e voltou ao topo sem travar e sem espaços em branco.
 
-## Próximos passos no TCC
-[preencher no final]
+**Resposta à pergunta:** para o tamanho de uma demonstração, a FlatList é suficiente; não foi preciso trocar pela FlashList.
+
+**Observação do teste:** a lista ficava atrás dos botões de navegação do Android. Não era um problema da FlatList, e sim da área segura da tela; corrigido no exercício 9.
+

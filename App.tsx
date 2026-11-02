@@ -1,3 +1,4 @@
+import * as Haptics from 'expo-haptics';
 import { StatusBar } from 'expo-status-bar';
 import { useRef, useState } from 'react';
 import {
@@ -163,6 +164,7 @@ export default function App() {
       const predicao = await solicitarInferencia(amostra.pixels);
       adicionarResultado(amostra, predicao);
       setAmostraInferida(true);
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (causa) {
       setErro(mensagemDeErro(causa, 'Não foi possível inferir a amostra.'));
     } finally {
@@ -202,6 +204,7 @@ export default function App() {
         adicionarResultado(amostraAtual, predicao);
         setAmostraInferida(true);
       }
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (causa) {
       setErro(mensagemDeErro(causa, 'Não foi possível concluir o lote.'));
     } finally {

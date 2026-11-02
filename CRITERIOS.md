@@ -52,16 +52,16 @@ de falhar: se nada nele pode reprovar, não é critério.
 
 ## Etapa 4 — Rodar 20 (responde à pergunta de pesquisa)
 
-- [ ] Ao tocar em "Rodar 20", os resultados entram na lista um a um, o botão
+- [x] Ao tocar em "Rodar 20", os resultados entram na lista um a um, o botão
       mostra o progresso e o placar atualiza a cada resultado.
-- [ ] Enquanto o "Rodar 20" está adicionando resultados, a lista continua
+- [x] Enquanto o "Rodar 20" está adicionando resultados, a lista continua
       rolando normalmente.
-- [ ] Com mais de 50 resultados na lista (três toques em "Rodar 20"), consigo
+- [x] Com mais de 50 resultados na lista (três toques em "Rodar 20"), consigo
       rolar até o fim e voltar ao topo sem a rolagem travar e sem aparecerem
       espaços em branco no lugar dos itens.
 
-**Verificado em:** ( ) aparelho físico ( ) emulador
-**Resultado:** ( ) passou ( ) reprovou
+**Verificado em:** (x) aparelho físico ( ) emulador
+**Resultado:** (x) passou ( ) reprovou
 
 Depois do teste, registre no `PESQUISA.md`, em "Resultado", o que você viu:
 a FlatList bastou, ou foi preciso partir para a FlashList?
@@ -79,10 +79,12 @@ a FlatList bastou, ou foi preciso partir para a FlashList?
 
 ---
 
-## Alteração pequena (exercício 9)
+## Alteração pequena (exercício 9) — área segura no Android
 
-- [ ]
-- [ ]
+- [ ] Ao rolar até o fim, o último item da lista aparece inteiro, acima dos
+      botões de navegação do Android.
+- [ ] O topo da tela não fica embaixo da barra de status.
+- [ ] Botões, textos e comportamento continuam iguais ao que eram.
 
 **Resultado:** ( ) passou ( ) reprovou
 
