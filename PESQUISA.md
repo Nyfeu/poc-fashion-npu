@@ -42,6 +42,16 @@ preciso partir para a FlashList?
 | FlatList | Listas longas | Sim | **Sim**: já vem no React Native e foi vista em aula |
 | FlashList | Listas muito longas | Sim | Plano B, se a FlatList travar |
 
+## Decisões de implementação
+- **Imagem pronta do servidor:** cada peça chega em PNG, já ampliada, e é
+  mostrada com um `Image` comum. Desenhar 784 quadradinhos por item deixaria
+  a lista pesada por causa do desenho, e o teste deixaria de medir a FlatList.
+- **Botão "Rodar 20":** sorteia e infere 20 peças em sequência. Serve para
+  chegar a mais de 50 itens sem tocar 100 vezes na tela e para testar a lista
+  enquanto os resultados chegam pela rede, que é a condição da pergunta.
+- **Construção em etapas:** um pedido pequeno ao agente por vez, com o diff
+  lido antes de aceitar, teste no celular e um commit por etapa.
+
 ## Fontes oficiais lidas
 - FlatList: https://reactnative.dev/docs/flatlist
 - ScrollView: https://reactnative.dev/docs/scrollview
@@ -49,17 +59,30 @@ preciso partir para a FlashList?
 - FlashList no Expo: https://docs.expo.dev/versions/latest/sdk/flash-list
 - Mudanças da FlashList v2: https://shopify.github.io/flash-list/docs/v2-migration
 - expo-image: https://docs.expo.dev/versions/latest/sdk/image
+- expo-haptics: https://docs.expo.dev/versions/v58.0.0/sdk/haptics/
 
 ## Onde a IA errou
 | O que pedi | O que veio | Como percebi | O que era o certo |
 |---|---|---|---|
-| Opções de lista | Gemini disse que a FlashList precisa de tamanho fixo dos itens | Li a página de mudanças da versão 2 | Isso só valia na versão antiga |
-| Opções de lista | Gemini citou uma configuração (recyclingKey) como sendo da FlashList | Procurei na documentação | É do expo-image, outra biblioteca |
+| Opções de lista (Gemini) | Disse que a FlashList precisa de tamanho fixo dos itens | Li a página de mudanças da versão 2 | Isso só valia na versão antiga |
+| Opções de lista (Gemini) | Citou uma configuração (recyclingKey) como sendo da FlashList | Procurei na documentação | É do expo-image, outra biblioteca |
+| Etapa 2 do app, sem mexer em pacotes (agente) | Mexeu no package.json duas vezes: o ESLint entrou (pelo `expo lint` que o AGENTS.md manda rodar) e depois ele tentou removê-lo | Lendo o diff antes de aceitar | Manter o ESLint e não mexer no package.json; recusei a remoção |
+| Montar a tela do app (agente) | Omissão: a tela foi feita sem respeitar a área segura do Android, e a lista ficava atrás dos botões de navegação do sistema | Testando no celular, não na resposta do chat | Usar o SafeAreaView do react-native-safe-area-context; corrigido no exercício 9 |
 
 ## Resultado
-Testei no celular (Samsung ZFold 6, Android), pelo Expo Go em modo de desenvolvimento, que é mais lento que o app final. Com 60 resultados na lista, incluindo rolar enquanto novos resultados chegavam pelo "Rodar 20", a FlatList rolou até o fim e voltou ao topo sem travar e sem espaços em branco.
+Testei no celular ([modelo do seu celular], Android), pelo Expo Go em modo
+de desenvolvimento, que é mais lento que o app final. Com 60 resultados na
+lista, incluindo rolar enquanto novos resultados chegavam pelo "Rodar 20",
+a FlatList rolou até o fim e voltou ao topo sem travar e sem espaços em
+branco.
 
-**Resposta à pergunta:** para o tamanho de uma demonstração, a FlatList é suficiente; não foi preciso trocar pela FlashList.
+**Resposta à pergunta:** para o tamanho de uma demonstração, a FlatList é
+suficiente; não foi preciso trocar pela FlashList.
 
-**Observação do teste:** a lista ficava atrás dos botões de navegação do Android. Não era um problema da FlatList, e sim da área segura da tela; corrigido no exercício 9.
+**Observação do teste:** a lista ficava atrás dos botões de navegação do
+Android. Não era um problema da FlatList, e sim da área segura da tela;
+corrigido no exercício 9.
 
+## Próximos passos no TCC
+- Usar o app nas demonstrações e na banca, para mostrar a NPU com mais de
+  uma rede.

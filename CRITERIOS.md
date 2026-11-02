@@ -81,13 +81,13 @@ a FlatList bastou, ou foi preciso partir para a FlashList?
 
 ## Alteração pequena (exercício 9) — área segura no Android
 
-- [ ] Ao rolar até o fim, o último item da lista aparece inteiro, acima dos
+- [x] Ao rolar até o fim, o último item da lista aparece inteiro, acima dos
       botões de navegação do Android.
-- [ ] O topo da tela não fica embaixo da barra de status.
-- [ ] Botões, textos e comportamento continuam iguais ao que eram.
+- [x] O topo da tela não fica embaixo da barra de status.
+- [x] Botões, textos e comportamento continuam iguais ao que eram.
 
-**Verificado em:** ( ) aparelho físico ( ) emulador
-**Resultado:** ( ) passou ( ) reprovou
+**Verificado em:** (x) aparelho físico ( ) emulador
+**Resultado:** (x) passou ( ) reprovou
 
 ---
 
