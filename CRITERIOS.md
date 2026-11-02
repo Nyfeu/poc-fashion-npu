@@ -77,6 +77,20 @@ a FlatList bastou, ou foi preciso partir para a FlashList?
 **Verificado em:** (x) aparelho físico ( ) emulador
 **Resultado:** (x) passou ( ) reprovou
 
+## Etapa 6 — identidade visual da apresentação
+
+- [x] O app tem fundo escuro e as mesmas cores da apresentação.
+- [x] A peça sorteada aparece em quadradinhos azuis sobre uma grade, como na
+      capa da apresentação.
+- [x] Acerto e erro continuam fáceis de distinguir: ✓ com faixa azul, ✗ com
+      faixa laranja.
+- [x] Botões desabilitados continuam visivelmente diferentes dos habilitados.
+- [x] Tudo o que funcionava continua funcionando (repetir rápido os testes das
+      etapas 2 a 5).
+
+**Verificado em:** (x) aparelho físico ( ) emulador
+**Resultado:** (x) passou ( ) reprovou
+
 ---
 
 ## Alteração pequena (exercício 9) — área segura no Android

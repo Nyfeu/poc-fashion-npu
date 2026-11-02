@@ -57,12 +57,15 @@ No celular, use o IP do computador que o servidor mostra ao iniciar,
 **`GET /amostra/fashion`**
 ```json
 { "id": 1206, "pixels": [0, 0, 12, ...], "imagem_png": "data:image/png;base64,iVBOR...",
+  "imagem_estilo": "data:image/png;base64,iVBOR...",
   "classe_real": 9, "rotulo_real": "Bota" }
 ```
 `pixels` são 784 inteiros de 0 a 255, linha por linha (28 × 28): é o que vai
 para a NPU. `imagem_png` é a mesma imagem já ampliada para 112 × 112, pronta
 para mostrar no app com `<Image source={{ uri: imagem_png }} />`, sem precisar
-desenhar 784 quadradinhos por item da lista.
+desenhar 784 quadradinhos por item da lista. `imagem_estilo` é a mesma peça no
+estilo da apresentação: 224 × 224 px, cada pixel um quadradinho azul sobre uma
+grade escura.
 
 **`POST /inferir/fashion`**, com corpo `{ "pixels": [...784...] }`
 ```json

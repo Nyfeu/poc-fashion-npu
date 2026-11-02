@@ -70,7 +70,7 @@ preciso partir para a FlashList?
 | Montar a tela do app (agente) | Omissão: a tela foi feita sem respeitar a área segura do Android, e a lista ficava atrás dos botões de navegação do sistema | Testando no celular, não na resposta do chat | Usar o SafeAreaView do react-native-safe-area-context; corrigido no exercício 9 |
 
 ## Resultado
-Testei no celular ([modelo do seu celular], Android), pelo Expo Go em modo
+Testei no celular (Samsung ZFold 6, Android), pelo Expo Go em modo
 de desenvolvimento, que é mais lento que o app final. Com 60 resultados na
 lista, incluindo rolar enquanto novos resultados chegavam pelo "Rodar 20",
 a FlatList rolou até o fim e voltou ao topo sem travar e sem espaços em

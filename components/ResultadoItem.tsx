@@ -2,7 +2,7 @@ import { Image, StyleSheet, Text, View } from 'react-native';
 
 export type Resultado = {
   id: number;
-  imagem_png: string;
+  imagem_estilo: string;
   rotulo_previsto: string;
   confianca: number;
   rotulo_real: string;
@@ -15,8 +15,13 @@ type Props = {
 
 export default function ResultadoItem({ resultado }: Props) {
   return (
-    <View style={styles.item}>
-      <Image source={{ uri: resultado.imagem_png }} style={styles.imagem} resizeMode="contain" />
+    <View
+      style={[
+        styles.item,
+        resultado.acertou ? styles.faixaAcerto : styles.faixaErro,
+      ]}
+    >
+      <Image source={{ uri: resultado.imagem_estilo }} style={styles.imagem} resizeMode="contain" />
       <View style={styles.textos}>
         <Text style={styles.prevista}>
           Prevista: {resultado.rotulo_previsto} ({Math.round(resultado.confianca * 100)}%)
@@ -38,13 +43,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    paddingVertical: 10,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#ddd',
+    marginBottom: 10,
+    padding: 12,
+    backgroundColor: '#131D31',
+    borderWidth: 1,
+    borderColor: '#24324D',
+    borderLeftWidth: 4,
+    borderRadius: 12,
+  },
+  faixaAcerto: {
+    borderLeftColor: '#7DD3FC',
+  },
+  faixaErro: {
+    borderLeftColor: '#FDBA74',
   },
   imagem: {
-    width: 64,
-    height: 64,
+    width: 72,
+    height: 72,
   },
   textos: {
     flex: 1,
@@ -53,10 +68,11 @@ const styles = StyleSheet.create({
   prevista: {
     fontSize: 15,
     fontWeight: '600',
+    color: '#EEF2F8',
   },
   real: {
     fontSize: 14,
-    color: '#555',
+    color: '#A9B4C8',
   },
   marcador: {
     width: 28,
@@ -65,9 +81,9 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   acerto: {
-    color: '#16803c',
+    color: '#7DD3FC',
   },
   erro: {
-    color: '#c62828',
+    color: '#FDBA74',
   },
 });

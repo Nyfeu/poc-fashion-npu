@@ -59,6 +59,43 @@ def png_data_uri(pixels: np.ndarray, ampliacao: int = 4) -> str:
     return "data:image/png;base64," + base64.b64encode(png).decode()
 
 
+def _png(img: np.ndarray, tipo_cor: int) -> bytes:
+    """Monta um PNG a partir de uma matriz (altura, largura) ou (altura, largura, 3)."""
+    altura, largura = img.shape[:2]
+    bruto = b"".join(b"\x00" + linha.tobytes() for linha in img)
+
+    def bloco(tipo: bytes, dados: bytes) -> bytes:
+        return (struct.pack(">I", len(dados)) + tipo + dados
+                + struct.pack(">I", zlib.crc32(tipo + dados) & 0xFFFFFFFF))
+
+    return (b"\x89PNG\r\n\x1a\n"
+            + bloco(b"IHDR", struct.pack(">IIBBBBB", largura, altura, 8, tipo_cor, 0, 0, 0))
+            + bloco(b"IDAT", zlib.compress(bruto, 9))
+            + bloco(b"IEND", b""))
+
+
+FUNDO_GRADE = np.array([0x0B, 0x12, 0x20], np.float64)   # #0B1220, entre os quadradinhos
+PIXEL_APAGADO = np.array([0x1A, 0x26, 0x40], np.float64)  # #1A2640
+PIXEL_ACESO = np.array([0x7D, 0xD3, 0xFC], np.float64)    # #7DD3FC
+
+
+def png_estilizado(pixels: np.ndarray, celula: int = 8, vao: int = 1) -> str:
+    """Mesma imagem 28x28 no estilo da apresentação: cada pixel vira um
+    quadradinho azul (mais claro = mais intenso), separado por uma grade escura.
+    Sai com 224x224 px, em data URI para o <Image>."""
+    v = pixels.reshape(28, 28).astype(np.float64)[..., None] / 255
+    cores = PIXEL_APAGADO + (PIXEL_ACESO - PIXEL_APAGADO) * v          # (28, 28, 3)
+    lado = 28 * celula
+    img = np.empty((lado, lado, 3), np.float64)
+    img[:] = FUNDO_GRADE
+    for y in range(28):
+        for x in range(28):
+            y0, x0 = y * celula + vao, x * celula + vao
+            img[y0:y0 + celula - vao, x0:x0 + celula - vao] = cores[y, x]
+    png = _png(np.round(img).astype(np.uint8), tipo_cor=2)
+    return "data:image/png;base64," + base64.b64encode(png).decode()
+
+
 def erro(mensagem: str, codigo: int):
     return jsonify(erro=mensagem), codigo
 
@@ -75,6 +112,7 @@ def amostra():
     classe = int(AMOSTRAS["rotulos"][i])
     img = AMOSTRAS["imagens"][i]
     return jsonify(id=i, pixels=img.reshape(-1).tolist(), imagem_png=png_data_uri(img),
+                   imagem_estilo=png_estilizado(img),
                    classe_real=classe, rotulo_real=CLASSES[classe])
 
 

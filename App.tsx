@@ -1,5 +1,6 @@
 import * as Haptics from 'expo-haptics';
 import { StatusBar } from 'expo-status-bar';
+import { NavigationBar } from 'expo-navigation-bar';
 import { useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -40,7 +41,7 @@ function mensagemDeErro(causa: unknown, fallback: string): string {
 
 type Amostra = {
   pixels: number[];
-  imagem_png: string;
+  imagem_estilo: string;
   classe_real: number;
   rotulo_real: string;
 };
@@ -66,8 +67,8 @@ async function buscarAmostra(): Promise<Amostra> {
   if (
     typeof dados !== 'object' ||
     dados === null ||
-    !('imagem_png' in dados) ||
-    typeof dados.imagem_png !== 'string' ||
+    !('imagem_estilo' in dados) ||
+    typeof dados.imagem_estilo !== 'string' ||
     !('pixels' in dados) ||
     !Array.isArray(dados.pixels) ||
     !dados.pixels.every((pixel) => typeof pixel === 'number') ||
@@ -80,7 +81,7 @@ async function buscarAmostra(): Promise<Amostra> {
   }
 
   return {
-    imagem_png: dados.imagem_png,
+    imagem_estilo: dados.imagem_estilo,
     pixels: dados.pixels,
     classe_real: dados.classe_real,
     rotulo_real: dados.rotulo_real,
@@ -177,7 +178,7 @@ export default function App() {
   function adicionarResultado(amostraAtual: Amostra, predicao: Predicao) {
     const resultado: Resultado = {
       id: proximoId.current,
-      imagem_png: amostraAtual.imagem_png,
+      imagem_estilo: amostraAtual.imagem_estilo,
       rotulo_previsto: predicao.rotulo,
       confianca: predicao.confianca,
       rotulo_real: amostraAtual.rotulo_real,
@@ -223,7 +224,9 @@ export default function App() {
     <SafeAreaProvider><SafeAreaView style={styles.container}>
       {amostra ? (
         <>
-          <Image source={{ uri: amostra.imagem_png }} style={styles.imagemTopo} resizeMode="contain" />
+          <View style={styles.cartaoImagem}>
+            <Image source={{ uri: amostra.imagem_estilo }} style={styles.imagemTopo} resizeMode="contain" />
+          </View>
           <Text style={styles.rotulo}>{amostra.rotulo_real}</Text>
         </>
       ) : (
@@ -241,7 +244,7 @@ export default function App() {
           ]}
         >
           {requisicaoEmAndamento === 'sorteio' ? (
-            <ActivityIndicator color="#fff" />
+            <ActivityIndicator color="#0B1220" />
           ) : (
             <Text
               style={[
@@ -264,7 +267,7 @@ export default function App() {
           ]}
         >
           {requisicaoEmAndamento === 'inferencia' ? (
-            <ActivityIndicator color="#fff" />
+            <ActivityIndicator color="#0B1220" />
           ) : (
             <Text
               style={[
@@ -288,12 +291,7 @@ export default function App() {
           pressed && styles.botaoPressionado,
         ]}
       >
-        <Text
-          style={[
-            styles.textoBotao,
-            requisicaoEmAndamento !== null && styles.textoBotaoDesabilitado,
-          ]}
-        >
+        <Text style={styles.textoBotaoLote}>
           {requisicaoEmAndamento === 'lote' ? `Rodando ${progressoLote}/20` : 'Rodar 20'}
         </Text>
       </Pressable>
@@ -307,7 +305,8 @@ export default function App() {
         style={styles.lista}
         contentContainerStyle={historico.length === 0 ? styles.listaVaziaContainer : undefined}
       />
-      <StatusBar style="auto" />
+      <StatusBar style="light" />
+      <NavigationBar style="light" />
     </SafeAreaView></SafeAreaProvider>
   );
 }
@@ -315,25 +314,37 @@ export default function App() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#0B1220',
     alignItems: 'center',
     paddingHorizontal: 24,
     paddingTop: 32,
   },
   imagemTopo: {
-    width: 112,
-    height: 112,
+    width: 224,
+    height: 224,
+  },
+  cartaoImagem: {
+    width: 248,
+    height: 248,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#131D31',
+    borderWidth: 1,
+    borderColor: '#24324D',
+    borderRadius: 16,
   },
   rotulo: {
     marginTop: 8,
     fontSize: 20,
     fontWeight: '600',
+    color: '#EEF2F8',
   },
   instrucao: {
     height: 112,
     textAlignVertical: 'center',
     fontSize: 16,
     textAlign: 'center',
+    color: '#A9B4C8',
   },
   botoes: {
     flexDirection: 'row',
@@ -347,28 +358,36 @@ const styles = StyleSheet.create({
     marginTop: 12,
     paddingHorizontal: 24,
     borderRadius: 8,
-    backgroundColor: '#2457c5',
+    backgroundColor: '#7DD3FC',
   },
   botaoDesabilitado: {
-    backgroundColor: '#a8b8dc',
+    backgroundColor: '#24324D',
   },
   botaoLote: {
     width: '100%',
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#7DD3FC',
   },
   botaoPressionado: {
     opacity: 0.8,
   },
   textoBotao: {
-    color: '#fff',
+    color: '#0B1220',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  textoBotaoLote: {
+    color: '#7DD3FC',
     fontSize: 16,
     fontWeight: '600',
   },
   textoBotaoDesabilitado: {
-    color: '#f4f6fb',
+    color: '#7C8AA5',
   },
   erro: {
     marginTop: 8,
-    color: '#b42318',
+    color: '#FDBA74',
     textAlign: 'center',
   },
   placar: {
@@ -377,6 +396,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     fontSize: 18,
     fontWeight: '600',
+    color: '#EEF2F8',
   },
   lista: {
     width: '100%',
@@ -386,7 +406,7 @@ const styles = StyleSheet.create({
   },
   listaVazia: {
     paddingTop: 24,
-    color: '#666',
+    color: '#A9B4C8',
     textAlign: 'center',
   },
 });
