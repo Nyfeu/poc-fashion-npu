@@ -1,5 +1,6 @@
 """
-Treina, quantiza para int8 e salva a rede do Fashion-MNIST usada pelo servidor.
+Treina, quantiza para int8 no formato da placa e salva a rede do Fashion-MNIST
+usada pelo servidor (emulação e placa usam os mesmos pesos).
 Só precisa de numpy (não usa PyTorch):
 
     python treinar.py            # baixa os dados e treina (~30 s)
@@ -18,7 +19,7 @@ from pathlib import Path
 
 import numpy as np
 
-from npu_emulada import PASTA_MODELOS, im2col_3x3_passo2, par_m_s, requantizar
+from npu_emulada import PASTA_MODELOS, ModeloNPU, im2col_3x3_passo2, preparar_entrada
 
 PASTA_DADOS = Path(__file__).parent / "dados"
 FONTE = "https://raw.githubusercontent.com/zalandoresearch/fashion-mnist/master/data/fashion/"
@@ -94,35 +95,48 @@ def treinar(epocas: int, rng):
         acc = (frente(p, im2col_3x3_passo2(paraf(xte)))[2].argmax(1) == yte).mean()
         print(f"  época {ep + 1}/{epocas}: acurácia float {acc:.2%} ({time.time() - t0:.0f} s)")
 
-    # --- quantização int8 (escalas calibradas em 5.000 imagens de treino) ---
-    s_x = 1 / 127
-    _, plano, z2 = frente(p, im2col_3x3_passo2(paraf(xtr[:5000])))
-    s_w1 = np.abs(p["w1"]).max() / 127
-    s_a1 = np.percentile(plano, 99.99) / 127
-    s_w2 = np.abs(p["w2"]).max() / 127
-    s_l = np.percentile(np.abs(z2), 99.9) / 127
-    q = {"w1": np.round(p["w1"] / s_w1).astype(np.int8),
-         "b1": np.round(p["b1"] / (s_x * s_w1)).astype(np.int32),
-         "w2": np.round(p["w2"] / s_w2).astype(np.int8),
-         "b2": np.round(p["b2"] / (s_a1 * s_w2)).astype(np.int32)}
-    q["m1"], q["s1"] = par_m_s(s_x * s_w1 / s_a1)
-    q["m2"], q["s2"] = par_m_s(s_a1 * s_w2 / s_l)
-    q["escala_logit"] = s_l
+    # --- quantização int8 no formato da placa (mesmo esquema do cnn_client.py) ---
+    # Calibração: maiores saídas da conv (após ReLU) e dos logits em todo o treino,
+    # para nenhuma imagem passar de 120 depois do >> 8 (a placa trabalha até 127).
+    max_y1 = max_y2 = 0.0
+    for i in range(0, len(xtr), 5000):
+        _, plano, z2 = frente(p, im2col_3x3_passo2(paraf(xtr[i:i + 5000])))
+        max_y1, max_y2 = max(max_y1, float(plano.max())), max(max_y2, float(np.abs(z2).max()))
+    w_conv_f = p["w1"].T                     # (4, 9): filtro x (dy*3+dx), como no PyTorch
+    w_fc_f = p["w2"].T                       # (10, 676): entrada em channels-last, como na placa
 
-    # acurácia da versão inteira, com as mesmas contas do servidor
-    xq = np.round(xte.astype(np.float64) * 127 / 255).astype(np.int64)
-    acc1 = im2col_3x3_passo2(xq) @ q["w1"].astype(np.int64) + q["b1"]
-    a1 = requantizar(acc1, q["m1"], q["s1"], 0, 127).reshape(len(xte), -1)
-    logits = requantizar(a1.astype(np.int64) @ q["w2"].astype(np.int64) + q["b2"],
-                         q["m2"], q["s2"], -128, 127)
-    acc_q = (logits.argmax(1) == yte).mean()
-    print(f"  acurácia int8: {acc_q:.2%}")
+    s_w1 = min(127.0 / np.abs(w_conv_f).max(), (120.0 * 256.0) / (max_y1 * 127.0))
+    w_conv = np.round(w_conv_f * s_w1).astype(np.int8)
+    b_conv = np.round(p["b1"] * 127.0 * s_w1).astype(np.int32)
+    s_y1 = (127.0 * s_w1) / 256.0
+    s_w2 = min(127.0 / np.abs(w_fc_f).max(), (120.0 * 256.0) / (max_y2 * s_y1))
+    w_fc = np.round(w_fc_f * s_w2).astype(np.int8)
+    b_fc = np.round(p["b2"] * s_y1 * s_w2).astype(np.int32)
+    escala_logit = 256.0 / (s_y1 * s_w2)     # logit real ~= logit_int8 * escala_logit
 
     PASTA_MODELOS.mkdir(exist_ok=True)
-    np.savez(PASTA_MODELOS / "fashion_int8.npz", **q, acuracia_int8=acc_q)
+    caminho = PASTA_MODELOS / "fashion_int8.npz"
+    np.savez(caminho, w_conv=w_conv, b_conv=b_conv, w_fc=w_fc, b_fc=b_fc,
+             escala_logit=escala_logit)
+
+    # acurácia da emulação inteira, com as mesmas contas que o servidor usa
+    logits = ModeloNPU(caminho).logits_emulados(preparar_entrada(xte))
+    acc_q = (logits.argmax(1) == yte).mean()
+    print(f"  acurácia int8 (emulação da placa): {acc_q:.2%}")
+    print(f"  maior saída da conv no teste: {acc_logits_conv(w_conv, b_conv, xte).max()} "
+          f"(a placa satura em 127)")
+    np.savez(caminho, w_conv=w_conv, b_conv=b_conv, w_fc=w_fc, b_fc=b_fc,
+             escala_logit=escala_logit, acuracia_int8=acc_q)
     # amostras do conjunto de teste servidas por GET /amostra/fashion
     np.savez_compressed(PASTA_MODELOS / "fashion_amostras.npz",
                         imagens=xte[:2000], rotulos=yte[:2000])
+
+
+def acc_logits_conv(w_conv, b_conv, imagens):
+    """Saída da conv já deslocada (>> 8), para conferir se cabe em 127."""
+    x = preparar_entrada(imagens).reshape(-1, 28, 28).astype(np.int64)
+    acc = im2col_3x3_passo2(x) @ w_conv.astype(np.int64).T + b_conv
+    return acc >> 8
 
 
 if __name__ == "__main__":

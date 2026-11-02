@@ -1,5 +1,8 @@
 # Simulador da PoC: Fashion-MNIST na NPU
 
+Funciona em dois modos: **emulação** (padrão, sem placa) ou **placa**
+(`--placa`, com a FPGA de verdade). Veja "Ligando na placa de verdade".
+
 Duas peças para ver como o app vai funcionar antes de escrevê-lo em React Native:
 
 - `servidor/`: faz o papel do computador ligado à placa. Entrega peças
@@ -41,7 +44,7 @@ placar de acertos acima.
 Para ver a mensagem de "hospedeiro inacessível", feche o servidor com o app
 aberto e toque em Sortear.
 
-O modelo já vem treinado em `servidor/modelos/` (~87% de acerto em int8).
+O modelo já vem treinado em `servidor/modelos/` (~87% de acerto em int8, no formato da placa).
 Para treinar de novo (baixa os dados, só usa numpy, cerca de 30 s):
 
 ```bash
@@ -92,17 +95,82 @@ grade escura.
 
 ## Ligando na placa de verdade
 
-Em `servidor.py`, a linha marcada com `<- troque aqui pela placa de verdade`
-chama a emulação. Troque-a pela função do `cnn_client` do TCC que envia a
-imagem pela UART e lê os logits (com os pesos do Fashion-MNIST carregados na
-placa), e mude `origem` para `"placa"`. O app não muda nada.
+O servidor tem dois modos, com **os mesmos pesos int8**:
+
+| Modo | Comando | De onde vem a resposta |
+|---|---|---|
+| Emulação (padrão) | `python servidor.py` | A conta da NPU feita no computador |
+| Placa | `python servidor.py --placa /dev/ttyUSB1` | A NPU na FPGA, pela UART |
+| Placa, gravando o firmware antes | `python servidor.py --placa /dev/ttyUSB1 --gravar` | Idem, depois de gravar o `cnn_server` |
+
+Com `--gravar`, o servidor primeiro grava o firmware `servidor/firmware/cnn_server.bin`
+na placa, com o mesmo protocolo do `upload.py`: reset pelo debug controller
+(RTS em baixo, `0xCAFEBABE`, boot em `0x00000000`, reset halt), espera o
+`BOOT` do bootloader, manda `0xCAFEBABE` (resposta `!`), o tamanho e o programa
+em blocos de 64 bytes, e espera o `>`. Para gravar outro arquivo:
+`--gravar caminho/do/programa.bin`. O bitstream do SoC (o hardware) já precisa
+estar na FPGA; o `--gravar` grava só o programa, e não usa o cartão microSD.
+
+Em seguida (com ou sem `--gravar`), o servidor envia os pesos do Fashion-MNIST para a
+NPU com o mesmo protocolo do `cnn_client.py` (comandos `0xAA`, `0xBB`, `0xCC`
+e `0xDD`) e espera as confirmações `A`, `B`, `C` e `D`. Cada inferência usa
+o comando `0xFF`. A FPGA precisa estar com o bitstream e o firmware
+`cnn_server.c` carregados.
+
+```bash
+# o mais completo: grava, carrega os pesos e confere 200 imagens antes de servir
+python servidor.py --placa /dev/ttyUSB1 --gravar --verificar 200
+```
+
+A verificação mostra a acurácia na placa e na emulação, quantas imagens deram
+a mesma classe e quantas deram exatamente os mesmos logits.
+
+Detalhes:
+- **Porta:** no Linux, algo como `/dev/ttyUSB1` (o mesmo do `cnn_client.py`);
+  no Windows, `COM4` e afins. Sem permissão no Linux: `sudo usermod -aG dialout $USER`
+  e entre de novo na sessão.
+- **Os LEDs e o display de 7 segmentos** mostram o número da classe prevista
+  (0 = Camiseta, 1 = Calça, ..., 7 = Tênis, 9 = Bota), porque o firmware foi
+  escrito para dígitos.
+- **A placa guarda um modelo por vez:** depois de usar o servidor, a NPU fica
+  com os pesos do Fashion-MNIST. Para voltar ao MNIST, rode o `cnn_client.py`.
+- **Se a placa não responder em 2 s,** o servidor devolve 503 "a placa não
+  respondeu", que o app já trata.
+- Cada resposta no modo placa traz também `classe_emulacao` e
+  `logits_emulacao`, e o `GET /status` conta quantas vezes placa e emulação
+  discordaram.
+
+### Testar o modo placa sem a FPGA (Linux)
+
+`testes/firmware_falso.py` cria uma porta serial virtual que responde ao
+mesmo protocolo do bootloader e do `cnn_server.c`, calculando a rede com laços
+diretos (a porta virtual não tem RTS; o servidor avisa e segue):
+
+```bash
+python testes/firmware_falso.py          # mostra algo como /dev/pts/3
+python servidor/servidor.py --placa /dev/pts/3 --gravar --verificar 40
+```
+
+Para simular a placa travando depois de 5 inferências:
+`python testes/firmware_falso.py 5`.
+
+### Como os pesos foram quantizados
+
+`treinar.py` usa o mesmo esquema do `cnn_client.py`: entrada `pixel // 2`
+(0 a 127), pesos em int8 com as escalas "seguras" que mantêm cada camada
+abaixo de 120, e a NPU dividindo o acumulador por 256 (`>> 8`) na saída de
+cada camada. A emulação faz exatamente essa conta. O arredondamento e a
+saturação exatos do hardware não estão no firmware; a emulação desloca para
+baixo e satura. Se o `--verificar` mostrar logits diferentes na placa, é
+aí que está a diferença.
 
 ## Limites
 
-- A emulação segue a mesma ideia da NPU (int8, acumulador int32,
-  requantização por par (M, S), ReLU fundida), mas **não é** o emulador bit a
-  bit do grupo. O número de ciclos é o medido na placa para essa arquitetura
-  (conv 3×3/2 com 4 filtros + densa 676→10), que é a mesma do MNIST.
+- A emulação reproduz a conta do firmware, mas **não é** o emulador bit a bit
+  do grupo. Use `--verificar` com a placa para conferir.
+- O número de ciclos (1.506) é o medido na placa para essa arquitetura
+  (conv 3×3/2 com 4 filtros + densa 676→10), que é a mesma do MNIST. No modo
+  placa, o `tempo_placa_ms` é medido de verdade (ida e volta pela UART).
 - As imagens vêm do conjunto de teste, então a acurácia que aparece no
   placar tende aos ~87% da rede. Fotos reais de roupas ficariam bem abaixo
   disso.
