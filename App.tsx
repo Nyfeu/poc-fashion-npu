@@ -43,12 +43,88 @@ type Amostra = {
   rotulo_real: string;
 };
 
+type Predicao = {
+  classe: number;
+  rotulo: string;
+  confianca: number;
+};
+
+async function buscarAmostra(): Promise<Amostra> {
+  const dados = await comTempoLimite<unknown>(async (signal) => {
+    const resposta = await fetch(`${SERVIDOR}/amostra/fashion`, { signal });
+    if (resposta.status === 503) {
+      throw new Error('A placa não respondeu. Tente de novo.');
+    }
+    if (!resposta.ok) {
+      throw new Error(`O servidor respondeu com status ${resposta.status}.`);
+    }
+    return resposta.json();
+  });
+
+  if (
+    typeof dados !== 'object' ||
+    dados === null ||
+    !('imagem_png' in dados) ||
+    typeof dados.imagem_png !== 'string' ||
+    !('pixels' in dados) ||
+    !Array.isArray(dados.pixels) ||
+    !dados.pixels.every((pixel) => typeof pixel === 'number') ||
+    !('classe_real' in dados) ||
+    typeof dados.classe_real !== 'number' ||
+    !('rotulo_real' in dados) ||
+    typeof dados.rotulo_real !== 'string'
+  ) {
+    throw new Error('A resposta do servidor não contém os dados esperados da amostra.');
+  }
+
+  return {
+    imagem_png: dados.imagem_png,
+    pixels: dados.pixels,
+    classe_real: dados.classe_real,
+    rotulo_real: dados.rotulo_real,
+  };
+}
+
+async function solicitarInferencia(pixels: number[]): Promise<Predicao> {
+  const dados = await comTempoLimite<unknown>(async (signal) => {
+    const resposta = await fetch(`${SERVIDOR}/inferir/fashion`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pixels }),
+      signal,
+    });
+    if (resposta.status === 503) {
+      throw new Error('A placa não respondeu. Tente de novo.');
+    }
+    if (!resposta.ok) {
+      throw new Error(`O servidor respondeu com status ${resposta.status}.`);
+    }
+    return resposta.json();
+  });
+
+  if (
+    typeof dados !== 'object' ||
+    dados === null ||
+    !('classe' in dados) ||
+    typeof dados.classe !== 'number' ||
+    !('rotulo' in dados) ||
+    typeof dados.rotulo !== 'string' ||
+    !('confianca' in dados) ||
+    typeof dados.confianca !== 'number'
+  ) {
+    throw new Error('A resposta do servidor não contém os dados esperados da inferência.');
+  }
+
+  return { classe: dados.classe, rotulo: dados.rotulo, confianca: dados.confianca };
+}
+
 export default function App() {
   const [amostra, setAmostra] = useState<Amostra | null>(null);
   const [requisicaoEmAndamento, setRequisicaoEmAndamento] = useState<
-    'sorteio' | 'inferencia' | null
+    'sorteio' | 'inferencia' | 'lote' | null
   >(null);
   const requisicaoAtiva = useRef(false);
+  const [progressoLote, setProgressoLote] = useState(0);
   const [amostraInferida, setAmostraInferida] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [historico, setHistorico] = useState<Resultado[]>([]);
@@ -61,38 +137,7 @@ export default function App() {
     setErro(null);
 
     try {
-      const dados = await comTempoLimite<unknown>(async (signal) => {
-        const resposta = await fetch(`${SERVIDOR}/amostra/fashion`, { signal });
-        if (resposta.status === 503) {
-          throw new Error('A placa não respondeu. Tente de novo.');
-        }
-        if (!resposta.ok) {
-          throw new Error(`O servidor respondeu com status ${resposta.status}.`);
-        }
-        return resposta.json();
-      });
-      if (
-        typeof dados !== 'object' ||
-        dados === null ||
-        !('imagem_png' in dados) ||
-        typeof dados.imagem_png !== 'string' ||
-        !('pixels' in dados) ||
-        !Array.isArray(dados.pixels) ||
-        !dados.pixels.every((pixel) => typeof pixel === 'number') ||
-        !('classe_real' in dados) ||
-        typeof dados.classe_real !== 'number' ||
-        !('rotulo_real' in dados) ||
-        typeof dados.rotulo_real !== 'string'
-      ) {
-        throw new Error('A resposta do servidor não contém os dados esperados da amostra.');
-      }
-
-      setAmostra({
-        imagem_png: dados.imagem_png,
-        pixels: dados.pixels,
-        classe_real: dados.classe_real,
-        rotulo_real: dados.rotulo_real,
-      });
+      setAmostra(await buscarAmostra());
       setAmostraInferida(false);
     } catch (causa) {
       setErro(mensagemDeErro(causa, 'Não foi possível sortear uma amostra.'));
@@ -115,51 +160,54 @@ export default function App() {
     setErro(null);
 
     try {
-      const dados = await comTempoLimite<unknown>(async (signal) => {
-        const resposta = await fetch(`${SERVIDOR}/inferir/fashion`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ pixels: amostra.pixels }),
-          signal,
-        });
-        if (resposta.status === 503) {
-          throw new Error('A placa não respondeu. Tente de novo.');
-        }
-        if (!resposta.ok) {
-          throw new Error(`O servidor respondeu com status ${resposta.status}.`);
-        }
-        return resposta.json();
-      });
-
-      if (
-        typeof dados !== 'object' ||
-        dados === null ||
-        !('classe' in dados) ||
-        typeof dados.classe !== 'number' ||
-        !('rotulo' in dados) ||
-        typeof dados.rotulo !== 'string' ||
-        !('confianca' in dados) ||
-        typeof dados.confianca !== 'number'
-      ) {
-        throw new Error('A resposta do servidor não contém os dados esperados da inferência.');
-      }
-
-      const resultado: Resultado = {
-        id: proximoId.current,
-        imagem_png: amostra.imagem_png,
-        rotulo_previsto: dados.rotulo,
-        confianca: dados.confianca,
-        rotulo_real: amostra.rotulo_real,
-        acertou: dados.classe === amostra.classe_real,
-      };
-      proximoId.current += 1;
-      setHistorico((anterior) => [resultado, ...anterior]);
+      const predicao = await solicitarInferencia(amostra.pixels);
+      adicionarResultado(amostra, predicao);
       setAmostraInferida(true);
     } catch (causa) {
       setErro(mensagemDeErro(causa, 'Não foi possível inferir a amostra.'));
     } finally {
       requisicaoAtiva.current = false;
       setRequisicaoEmAndamento(null);
+    }
+  }
+
+  function adicionarResultado(amostraAtual: Amostra, predicao: Predicao) {
+    const resultado: Resultado = {
+      id: proximoId.current,
+      imagem_png: amostraAtual.imagem_png,
+      rotulo_previsto: predicao.rotulo,
+      confianca: predicao.confianca,
+      rotulo_real: amostraAtual.rotulo_real,
+      acertou: predicao.classe === amostraAtual.classe_real,
+    };
+    proximoId.current += 1;
+    setHistorico((anterior) => [resultado, ...anterior]);
+  }
+
+  async function rodarVinte() {
+    if (requisicaoAtiva.current) return;
+    requisicaoAtiva.current = true;
+    setRequisicaoEmAndamento('lote');
+    setProgressoLote(0);
+    setErro(null);
+
+    try {
+      for (let rodada = 1; rodada <= 20; rodada += 1) {
+        setProgressoLote(rodada);
+        const amostraAtual = await buscarAmostra();
+        setAmostra(amostraAtual);
+        setAmostraInferida(false);
+
+        const predicao = await solicitarInferencia(amostraAtual.pixels);
+        adicionarResultado(amostraAtual, predicao);
+        setAmostraInferida(true);
+      }
+    } catch (causa) {
+      setErro(mensagemDeErro(causa, 'Não foi possível concluir o lote.'));
+    } finally {
+      requisicaoAtiva.current = false;
+      setRequisicaoEmAndamento(null);
+      setProgressoLote(0);
     }
   }
 
@@ -225,6 +273,26 @@ export default function App() {
           )}
         </Pressable>
       </View>
+      <Pressable
+        accessibilityRole="button"
+        disabled={requisicaoEmAndamento !== null}
+        onPress={rodarVinte}
+        style={({ pressed }) => [
+          styles.botao,
+          styles.botaoLote,
+          requisicaoEmAndamento !== null && styles.botaoDesabilitado,
+          pressed && styles.botaoPressionado,
+        ]}
+      >
+        <Text
+          style={[
+            styles.textoBotao,
+            requisicaoEmAndamento !== null && styles.textoBotaoDesabilitado,
+          ]}
+        >
+          {requisicaoEmAndamento === 'lote' ? `Rodando ${progressoLote}/20` : 'Rodar 20'}
+        </Text>
+      </Pressable>
       {erro ? <Text style={styles.erro}>{erro}</Text> : null}
       <Text style={styles.placar}>Acertos: {acertos} de {historico.length}</Text>
       <FlatList
@@ -279,6 +347,9 @@ const styles = StyleSheet.create({
   },
   botaoDesabilitado: {
     backgroundColor: '#a8b8dc',
+  },
+  botaoLote: {
+    width: '100%',
   },
   botaoPressionado: {
     opacity: 0.8,
