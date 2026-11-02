@@ -70,12 +70,12 @@ a FlatList bastou, ou foi preciso partir para a FlashList?
 
 ## Etapa 5 — retorno tátil
 
-- [ ] O celular vibra uma vez quando chega o resultado de um Inferir.
-- [ ] O celular vibra uma vez só quando o "Rodar 20" termina.
-- [ ] Durante o "Rodar 20", o celular não vibra a cada resultado.
+- [x] O celular vibra uma vez quando chega o resultado de um Inferir.
+- [x] O celular vibra uma vez só quando o "Rodar 20" termina.
+- [x] Durante o "Rodar 20", o celular não vibra a cada resultado.
 
-**Verificado em:** ( ) aparelho físico ( ) emulador
-**Resultado:** ( ) passou ( ) reprovou
+**Verificado em:** (x) aparelho físico ( ) emulador
+**Resultado:** (x) passou ( ) reprovou
 
 ---
 
@@ -86,6 +86,7 @@ a FlatList bastou, ou foi preciso partir para a FlashList?
 - [ ] O topo da tela não fica embaixo da barra de status.
 - [ ] Botões, textos e comportamento continuam iguais ao que eram.
 
+**Verificado em:** ( ) aparelho físico ( ) emulador
 **Resultado:** ( ) passou ( ) reprovou
 
 ---

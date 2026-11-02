@@ -10,6 +10,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import ResultadoItem, { type Resultado } from './components/ResultadoItem';
 
 const SERVIDOR = 'http://192.168.68.94:5000';
@@ -219,7 +220,7 @@ export default function App() {
     amostra === null || amostraInferida || requisicaoEmAndamento !== null;
 
   return (
-    <View style={styles.container}>
+    <SafeAreaProvider><SafeAreaView style={styles.container}>
       {amostra ? (
         <>
           <Image source={{ uri: amostra.imagem_png }} style={styles.imagemTopo} resizeMode="contain" />
@@ -307,7 +308,7 @@ export default function App() {
         contentContainerStyle={historico.length === 0 ? styles.listaVaziaContainer : undefined}
       />
       <StatusBar style="auto" />
-    </View>
+    </SafeAreaView></SafeAreaProvider>
   );
 }
 
