@@ -123,6 +123,12 @@ NPU, gravação do firmware e comunicação com a FPGA) e o `iniciar.sh` também
 foram gerados com IA. Foram validados com uma placa simulada que segue o
 protocolo do firmware e, depois, com a FPGA de verdade.
 
+## Demonstração
+
+Sortear e Inferir, o "Rodar 20" enchendo a lista e a rolagem com 60 itens, no celular, pelo Expo Go.
+
+https://github.com/user-attachments/assets/5db6cd7d-0707-4d35-8146-92799e1b0067
+
 ## Limites
 
 - O servidor funciona em dois modos com os mesmos pesos int8: **emulação**,
