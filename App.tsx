@@ -14,7 +14,7 @@ import {
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import ResultadoItem, { type Resultado } from './components/ResultadoItem';
 
-const SERVIDOR = 'http://192.168.68.94:5000';
+const SERVIDOR = process.env.EXPO_PUBLIC_SERVIDOR ?? 'http://192.168.68.94:5000';
 const TEMPO_LIMITE_MS = 5000;
 
 async function comTempoLimite<T>(operacao: (signal: AbortSignal) => Promise<T>): Promise<T> {

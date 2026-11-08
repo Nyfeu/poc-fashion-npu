@@ -36,37 +36,58 @@ em branco, no Expo Go em modo de desenvolvimento. Os detalhes estão em
 
 ## Como rodar
 
-### 1. O servidor (o computador ligado à placa)
+Precisa de Python 3, Node.js e o app **Expo Go** no celular. O celular e o
+computador ficam na mesma rede Wi-Fi.
+
+### Num comando só (Linux)
+
+```bash
+chmod +x iniciar.sh                                         # só na primeira vez
+./iniciar.sh                                                # emulação da NPU, sem placa
+./iniciar.sh --placa /dev/ttyUSB1 --gravar                  # FPGA: grava o firmware e usa a placa
+./iniciar.sh --placa /dev/ttyUSB1 --gravar --verificar 200  # e compara placa x emulação antes
+```
+
+O script prepara o ambiente Python e as dependências do app, sobe o servidor
+da NPU, espera ele responder, descobre o IP do computador na rede, passa esse
+endereço ao app e sobe o Expo. No Expo Go, abra o endereço `exp://...` que ele
+mostra. `Ctrl+C` encerra o app e o servidor juntos.
+
+Ele também avisa os problemas mais comuns: porta da placa inexistente, falta
+de permissão na porta (grupo `dialout`), firewall ativo e falta do
+`python3-venv`. O log do servidor fica em `.servidor.log`.
+
+### Passo a passo (sem o script)
+
+1. O servidor, no computador ligado à placa:
 
 ```bash
 cd simulador
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 cd servidor
-python servidor.py                                   # emulação da NPU (sem placa)
+python servidor.py                                   # emulação da NPU
 python servidor.py --placa /dev/ttyUSB1 --gravar     # FPGA de verdade
 ```
 
-Ao iniciar, o servidor mostra o endereço a usar no celular, como
-`http://192.168.0.10:5000`. Os detalhes (modo placa, `--verificar`, testes sem
-a FPGA) estão em [`simulador/README.md`](simulador/README.md).
-
-### 2. O app
-
-1. Coloque o endereço do servidor na constante `SERVIDOR`, no topo do
-   `App.tsx`. Use o IP do computador, nunca `localhost`.
-2. Com o celular e o computador na mesma rede Wi-Fi:
+2. O app, em outro terminal, na raiz do projeto:
 
 ```bash
 npm install
-npx expo start
+EXPO_PUBLIC_SERVIDOR=http://<ip-do-computador>:5000 npx expo start --clear
 ```
 
-3. Abra o projeto no **Expo Go** (QR Code ou `exp://<ip>:8081`).
+O app lê o endereço do servidor de `EXPO_PUBLIC_SERVIDOR` (no topo do
+`App.tsx`). Use o IP do computador na rede, nunca `localhost`: no celular,
+`localhost` é o próprio celular.
+
+Os detalhes do servidor (modo placa, `--verificar`, testes sem a FPGA) estão em
+[`simulador/README.md`](simulador/README.md).
 
 ## Estrutura
 
 ```
+iniciar.sh                   sobe o servidor da NPU e o app juntos
 App.tsx                      a tela da PoC (Sortear, Inferir, Rodar 20, lista)
 components/ResultadoItem.tsx um item do histórico
 PESQUISA.md                  diário de pesquisa: pergunta, alternativas, fontes, erros da IA
@@ -98,13 +119,16 @@ Os erros que a IA cometeu, e como foram percebidos, estão na seção "Onde a IA
 errou" do [`PESQUISA.md`](PESQUISA.md).
 
 **Uso de IA fora do agente:** o servidor de apoio em `simulador/` (emulação da
-NPU, gravação do firmware e comunicação com a FPGA) também foi gerado com IA,
-e validado com uma placa simulada que segue o protocolo do firmware.
+NPU, gravação do firmware e comunicação com a FPGA) e o `iniciar.sh` também
+foram gerados com IA. Foram validados com uma placa simulada que segue o
+protocolo do firmware e, depois, com a FPGA de verdade.
 
 ## Limites
 
-- Na demonstração, a inferência é **emulada** no computador. O modo placa já
-  existe no servidor, mas até agora só foi testado com uma placa simulada.
+- O servidor funciona em dois modos com os mesmos pesos int8: **emulação**,
+  que faz a conta da NPU no computador, e **placa**, que grava o firmware e
+  usa a NPU na FPGA. A comparação sistemática entre os dois em muitas imagens
+  (`--verificar 200`) ainda está por registrar.
 - A rede é pequena (uma convolução com 4 filtros e uma camada densa): acerta
   cerca de 87% no Fashion-MNIST.
 - O histórico não é salvo: ao fechar o app, a lista começa vazia.
